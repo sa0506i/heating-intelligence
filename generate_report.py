@@ -15,106 +15,157 @@ import urllib.error
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL = "claude-sonnet-4-20250514"
+MODEL = "claude-opus-4-6"
 REPORTS_DIR = pathlib.Path("reports")
 MAX_TOKENS = 4000
 
 SYSTEM_PROMPT = """You are a senior industry analyst assistant specializing in the residential heating sector.
-You are generating a structured weekly intelligence report for two senior executives:
+You generate a structured weekly intelligence report for two senior executives:
 1. Head of Portfolio and Product Management — Boilers, Hybrid Heat Pumps, Heat Pumps (EU)
 2. Head of Engineering
 
 Focus markets: Germany, Netherlands, UK, Italy, Iberia (Spain + Portugal), and broader EU.
 Products: Gas boilers, hybrid heat pumps, full heat pumps, heating controllers, IoT/connected heating systems.
 
-You MUST respond with ONLY valid JSON. No markdown, no explanation, no preamble.
-Follow the exact schema provided in the user message."""
+STRICT RULES — violations make the report useless:
+- ONLY include items published or announced in the last 7 days. Every item must have an exact date.
+- NEVER include general background, market overviews, or evergreen information. Every sentence must describe something specific that happened this week.
+- NEVER repeat or rephrase anything from the previous week's report (provided below). If a story continued, only report the NEW development from this week.
+- For competitors: find and cite actual press releases or news articles published this week. Name the exact product model, feature, or claim. No general strategy summaries.
+- Be specific: name the exact law/article number, product model, report title, or Reddit thread. Vague summaries are not acceptable.
+- If a section truly has no new verified items this week, include exactly one entry: title "No confirmed updates this week", with a note on what was searched.
 
-USER_PROMPT = """Search the web and generate this week's residential heating industry intelligence report.
+You MUST respond with ONLY valid JSON. No markdown, no explanation, no preamble."""
 
-Search for information from the past 7 days on:
-1. EU and national legislation updates (ErP, EED, F-Gas, Building Renovation, Germany GEG, UK Boiler Plus, NL, Italy, Iberia)
-2. New or updated norms and standards (EN standards related to boilers, heat pumps, controls)
-3. Competitor news: Bosch, Vaillant, Viessmann, Worcester Bosch, Baxi, Rinnai, Daikin, Mitsubishi, Samsung, LG, Ariston, Ferroli, BDR Thermea, Ideal Heating, Atlantic, De Dietrich — product launches, announcements, partnerships, M&A
-4. Market reports: new releases from Wood Mackenzie, BSRIA, Freedonia, EHPA, BVF, ZVSHK, etc.
-5. Social media trends: Reddit (r/heatpumps, r/DIY, r/HVAC, r/Germany etc.), YouTube trending videos, Instagram/TikTok topics related to heat pumps, boilers, heating costs
 
-Respond ONLY with this exact JSON structure (no markdown, no backticks, just raw JSON):
+def build_user_prompt(previous_report: dict | None, today: datetime.date) -> str:
+    date_from = (today - datetime.timedelta(days=7)).isoformat()
+    date_to = today.isoformat()
 
-{
-  "executive_summary": "3-4 sentence high-level summary of the most important developments this week, highlighting what matters most for portfolio management and engineering decisions.",
+    prev_section = ""
+    if previous_report:
+        prev_titles = []
+        for section_items in previous_report.get("sections", {}).values():
+            if isinstance(section_items, list):
+                for item in section_items:
+                    if isinstance(item, dict) and item.get("title"):
+                        prev_titles.append(f"- {item['title']}")
+        prev_exec = previous_report.get("executive_summary", "")
+        prev_section = f"""
+PREVIOUS WEEK'S REPORT — do NOT repeat any of these topics or stories, even if still in the news:
+Last week's summary: {prev_exec}
 
-  "signals": {
+Items already covered — skip these entirely:
+{chr(10).join(prev_titles[:40])}
+
+"""
+
+    return f"""Today is {date_to}. Search for residential heating industry news published strictly between {date_from} and {date_to}.
+{prev_section}
+Run the following targeted searches:
+
+1. LEGISLATION & POLICY
+Search: "GEG 2025 Änderung", "Wärmegesetz Bundestag", "Boiler Plus UK 2025", "ErP ecodesign heating {date_to[:4]}", "EED buildings directive", "Dutch heating ban update", "Italy heating Superbonus", "Spain heating regulation", "EPBD implementation" — report only official publications, votes, consultations, or government announcements from this week.
+
+2. NORMS & STANDARDS
+Search: "EN 14511 2025", "EN 12309 heat pump", "DIN Norm Wärmepumpe", "BSI PAS heating", "CEN TC 113 meeting", "heat pump ErP label" — only new publications, drafts, or consultation openings from this week.
+
+3. COMPETITOR PRESS RELEASES (most important section — do multiple searches per company)
+Search each company's recent announcements:
+- "Bosch Thermotechnik press release {date_to[:7]}" / "Buderus Neuheit" / "Junkers Bosch announcement"
+- "Vaillant press release {date_to[:7]}" / "Vaillant aroTHERM" / "Vaillant ecoTEC"
+- "Viessmann Carrier announcement {date_to[:7]}" / "Viessmann Vitocal"
+- "Worcester Bosch news {date_to[:7]}"
+- "Baxi press release" / "Remeha announcement" / "BDR Thermea news"
+- "Ariston press release {date_to[:7]}" / "Ferroli news"
+- "Daikin Europe press release {date_to[:7]}" / "Daikin Altherma"
+- "Mitsubishi Electric heating announcement {date_to[:7]}" / "Ecodan news"
+- "Samsung heat pump announcement" / "LG ThermaV press release"
+- "Ideal Heating news" / "Atlantic heating press release"
+For each: cite exact product model, specific claim or feature, and press release title or URL.
+
+4. MARKET DATA & REPORTS
+Search: "heat pump sales {date_to[:7]}", "EHPA statistics {date_to[:4]}", "BSRIA heating report", "boiler sales Germany {date_to[:4]}", "warmtepomp verkopen {date_to[:4]}", "heat pump installations UK {date_to[:4]}", "BVF Marktbericht", "ZVSHK Statistik" — only newly released reports or datasets from this week.
+
+5. SOCIAL MEDIA & CONSUMER TRENDS
+Search Reddit (r/heatpumps, r/HVAC, r/germany, r/DIY, r/UKPersonalFinance, r/Wärmepumpe) and YouTube for threads or videos that gained traction this week. Include exact thread or video titles, not summaries of general opinion.
+
+Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
+
+{{
+  "executive_summary": "3-4 sentences naming specific products, laws, or companies from this week. No generic observations.",
+
+  "signals": {{
     "regulatory_pressure": "High/Medium/Low",
     "market_momentum": "High/Medium/Low",
     "competitor_activity": "High/Medium/Low",
     "social_buzz": "High/Medium/Low"
-  },
+  }},
 
-  "sections": {
+  "sections": {{
     "legislation": [
-      {
-        "title": "Title of the update",
-        "source": "Source name",
-        "market": "DE / NL / UK / IT / ES / EU",
-        "date": "YYYY-MM-DD or 'this week'",
-        "summary": "2-3 sentences explaining what happened and why it matters for boiler/heat pump portfolio."
-      }
+      {{
+        "title": "Exact name of law/directive/announcement",
+        "source": "Official source + URL if available",
+        "market": "DE / NL / UK / IT / ES / PT / EU",
+        "date": "YYYY-MM-DD",
+        "summary": "What specifically happened this week. Include article numbers or specific provisions. Why it matters for boiler or heat pump portfolio."
+      }}
     ],
     "norms": [
-      {
-        "title": "Title",
-        "source": "e.g. CEN, DIN, BSI",
-        "market": "EU / DE / UK",
-        "date": "YYYY-MM-DD or 'this week'",
-        "summary": "What changed and engineering relevance."
-      }
+      {{
+        "title": "Exact norm designation e.g. EN 14511-3:2025 draft",
+        "source": "CEN / DIN / BSI / NEN / UNI",
+        "market": "EU / DE / UK / NL",
+        "date": "YYYY-MM-DD",
+        "summary": "What specifically was published or changed. Engineering impact: test conditions, efficiency thresholds, certification implications."
+      }}
     ],
     "competitors": [
-      {
-        "title": "Company: what happened",
-        "source": "Source",
-        "market": "Market",
-        "date": "date",
-        "summary": "What they announced/launched and competitive implication."
-      }
+      {{
+        "title": "CompanyName: Exact product model or announcement title",
+        "source": "Press release title and URL or news source",
+        "market": "DE / UK / EU / Global",
+        "date": "YYYY-MM-DD",
+        "summary": "Exact product features, specs, pricing, or markets targeted. Direct competitive implication for our hybrid/HP/boiler portfolio."
+      }}
     ],
     "market": [
-      {
-        "title": "Report/data title",
-        "source": "Publisher",
-        "market": "Region",
-        "date": "date",
-        "summary": "Key findings and market implication."
-      }
+      {{
+        "title": "Exact report or dataset title",
+        "source": "Publisher name",
+        "market": "Region covered",
+        "date": "YYYY-MM-DD",
+        "summary": "Specific data points (numbers, %, forecasts). What it signals for portfolio or go-to-market planning."
+      }}
     ],
     "social_left": [
-      {
-        "title": "Topic/trend name",
-        "source": "Reddit / YouTube / Instagram",
-        "market": "Global / DE / UK / EU",
-        "date": "this week",
-        "summary": "What consumers are saying/watching and what it signals for product strategy."
-      }
+      {{
+        "title": "Exact Reddit thread title or YouTube video title",
+        "source": "Reddit r/NAME / YouTube channel name",
+        "market": "DE / UK / Global / EU",
+        "date": "YYYY-MM-DD",
+        "summary": "What specifically was discussed or viewed. Consumer pain point or preference signal relevant to product or communication strategy."
+      }}
     ],
     "social_right": [
-      {
-        "title": "Topic/trend name",
-        "source": "Reddit / YouTube / Instagram",
-        "market": "Global / DE / UK / EU",
-        "date": "this week",
-        "summary": "Consumer insight and relevance."
-      }
+      {{
+        "title": "Exact thread/video/trend title",
+        "source": "Reddit r/NAME / YouTube / Google Trends",
+        "market": "DE / UK / Global / EU",
+        "date": "YYYY-MM-DD",
+        "summary": "Specific insight. Implication for product features, installer training, or marketing."
+      }}
     ]
-  },
+  }},
 
-  "portfolio_implications": "2-3 paragraphs specifically addressing: (1) What this week's news means for the boiler and hybrid heat pump portfolio, (2) Engineering priorities or risks to watch, (3) Recommended actions or decisions to consider.",
+  "portfolio_implications": "Paragraph 1: Which specific legislative or regulatory action from this week directly affects boiler phase-out timelines or heat pump incentives — and by how much. Paragraph 2: Specific competitor moves from this week that create a gap or threat — name the product and market. Paragraph 3: One concrete recommended action or decision trigger based solely on this week's intelligence.",
 
-  "week_headline": "A short, punchy 8-12 word headline summarizing the most important theme of this week.",
-  "week_preview": "One sentence (max 20 words) preview for the archive listing."
-}
+  "week_headline": "8-12 word headline naming the single most important specific event of this week.",
+  "week_preview": "One sentence max 20 words for archive listing."
+}}
 
-Include 3-5 items per section. If nothing notable happened in a section, include 1 item noting the quiet week."""
+Include 3-5 items per section. If no verified news exists for a section, use exactly one entry with title 'No confirmed updates this week'."""
 
 # ── HELPERS ───────────────────────────────────────────────────────────────────
 
@@ -126,14 +177,14 @@ def get_iso_week():
 def get_report_filename(year, week):
     return f"{year}-W{week:02d}.json"
 
-def call_claude_api(api_key: str) -> dict:
+def call_claude_api(api_key: str, user_prompt: str) -> dict:
     """Call Anthropic API with web search tool enabled."""
     payload = {
         "model": MODEL,
         "max_tokens": MAX_TOKENS,
         "system": SYSTEM_PROMPT,
         "tools": [{"type": "web_search_20250305", "name": "web_search"}],
-        "messages": [{"role": "user", "content": USER_PROMPT}]
+        "messages": [{"role": "user", "content": user_prompt}]
     }
 
     data = json.dumps(payload).encode("utf-8")
@@ -143,14 +194,13 @@ def call_claude_api(api_key: str) -> dict:
         headers={
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
-            "anthropic-beta": "interleaved-thinking-2025-05-14",
             "content-type": "application/json",
         },
         method="POST"
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=180) as resp:
             raw = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8")
@@ -166,6 +216,21 @@ def call_claude_api(api_key: str) -> dict:
         full_text = full_text.rsplit("```", 1)[0]
 
     return json.loads(full_text)
+
+
+def load_previous_report(index: dict) -> dict | None:
+    """Load the most recent past report to pass as dedupe context."""
+    reports = index.get("reports", [])
+    if not reports:
+        return None
+    path = REPORTS_DIR / reports[0].get("file", "")
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return None
+
 
 def load_index() -> dict:
     index_path = REPORTS_DIR / "index.json"
@@ -219,9 +284,20 @@ def main():
         print(f"  Report for {year}-W{week:02d} already exists. Use --force to regenerate.")
         sys.exit(0)
 
+    # Load previous report for dedupe context
+    previous_report = load_previous_report(index)
+    if previous_report:
+        print("  Previous report loaded for dedupe context.")
+    else:
+        print("  No previous report found — first run.")
+
+    # Build dynamic prompt with today's date + previous report context
+    today = datetime.date.today()
+    user_prompt = build_user_prompt(previous_report, today)
+
     # Call Claude
     print("  Calling Claude API with web search...")
-    report = call_claude_api(ANTHROPIC_API_KEY)
+    report = call_claude_api(ANTHROPIC_API_KEY, user_prompt)
     print("  Report received.")
 
     # Save
