@@ -84,10 +84,26 @@ Search each company's recent announcements:
 - "Ideal Heating news" / "Atlantic heating press release"
 For each: cite exact product model, specific claim or feature, and press release title or URL.
 
-4. MARKET DATA & REPORTS
+4. TRADE ASSOCIATION & INDUSTRY BODY PRESS RELEASES
+Search the following organisations for press releases, position papers, statistics, or statements published this week:
+- EHPA (European Heat Pump Association): "EHPA press release {date_to[:7]}" / "EHPA statement" / site:ehpa.org news
+- EHI (European Heating Industry): "EHI press release {date_to[:7]}" / "EHI statement" / site:ehi.eu news
+- ZVSHK (Germany — plumbing/heating installers): "ZVSHK Pressemitteilung {date_to[:7]}" / "ZVSHK Stellungnahme"
+- BVF (Germany — surface heating): "BVF Pressemitteilung {date_to[:7]}"
+- HEA (Heating Equipment Association, UK): "HEA press release {date_to[:7]}"
+- BEAMA (UK — manufacturers): "BEAMA press release {date_to[:7]}"
+- UNCSAAL / Assotermica (Italy): "Assotermica comunicato {date_to[:7]}"
+- AFPAC (France): "AFPAC communiqué {date_to[:7]}"
+- Techniek Nederland (NL): "Techniek Nederland persbericht {date_to[:7]}"
+- IDAE (Spain — energy agency): "IDAE nota de prensa {date_to[:7]}"
+- APISOLAR / AFEC (Iberia — heat pump associations): news from this week
+- Heat Pump Association (UK — HPA): "Heat Pump Association press release {date_to[:7]}"
+Report the exact title of each press release or statement, the publishing organisation, and the key claim or data point. Do not paraphrase — quote the specific number, policy position, or product category mentioned.
+
+5. MARKET DATA & REPORTS
 Search: "heat pump sales {date_to[:7]}", "EHPA statistics {date_to[:4]}", "BSRIA heating report", "boiler sales Germany {date_to[:4]}", "warmtepomp verkopen {date_to[:4]}", "heat pump installations UK {date_to[:4]}", "BVF Marktbericht", "ZVSHK Statistik" — only newly released reports or datasets from this week.
 
-5. SOCIAL MEDIA & CONSUMER TRENDS
+6. SOCIAL MEDIA & CONSUMER TRENDS
 Search Reddit (r/heatpumps, r/HVAC, r/germany, r/DIY, r/UKPersonalFinance, r/Wärmepumpe) and YouTube for threads or videos that gained traction this week. Include exact thread or video titles, not summaries of general opinion.
 
 Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
@@ -137,6 +153,15 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "market": "Region covered",
         "date": "YYYY-MM-DD",
         "summary": "Specific data points (numbers, %, forecasts). What it signals for portfolio or go-to-market planning."
+      }}
+    ],
+    "trade_associations": [
+      {{
+        "title": "Exact press release or statement title",
+        "source": "Organisation name (e.g. EHPA, EHI, ZVSHK, HPA, BEAMA)",
+        "market": "EU / DE / UK / IT / ES / NL",
+        "date": "YYYY-MM-DD",
+        "summary": "Specific claim, statistic, or policy position stated. Why it matters for heating portfolio strategy or regulatory positioning."
       }}
     ],
     "social_left": [
