@@ -449,12 +449,9 @@
 <!-- ARCHIVE PAGE -->
 <div id="page-archive" class="page">
   <div class="container">
-    <div style="margin-bottom:1.5rem; border-bottom:1px solid var(--rule); padding-bottom:1rem; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
-      <div>
-        <div class="report-date">Report Archive</div>
-        <div class="report-headline" style="font-family:var(--serif)">Previous Editions</div>
-      </div>
-      <button class="btn-cancel" style="font-size:11px;" onclick="clearGhToken()" title="Clear saved GitHub token">Clear saved token</button>
+    <div style="margin-bottom:1.5rem; border-bottom:1px solid var(--rule); padding-bottom:1rem;">
+      <div class="report-date">Report Archive</div>
+      <div class="report-headline" style="font-family:var(--serif)">Previous Editions</div>
     </div>
     <div id="archive-grid" class="archive-grid"></div>
     <div id="archive-empty" class="state-box" style="display:none">
@@ -678,7 +675,7 @@ async function loadArchive() {
           </svg>
         </button>
         <div class="card-dropdown" id="menu-${id}">
-          <button class="card-dropdown-item danger" onclick="event.stopPropagation(); closeAllMenus(); openDeleteModal('${r.file}', ${JSON.stringify(r.headline || 'this report')})">
+          <button class="card-dropdown-item danger" onclick="closeAllMenus(); openDeleteModal('${r.file}', ${JSON.stringify(r.headline || 'this report')})">
             Delete report
           </button>
         </div>
@@ -735,8 +732,12 @@ function closeAllMenus() {
   document.querySelectorAll('.card-dropdown.open').forEach(m => m.classList.remove('open'));
 }
 
-// Close menus when clicking anywhere else
-document.addEventListener('click', closeAllMenus);
+// Close menus when clicking outside — but not when clicking inside a dropdown
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.card-dropdown') && !e.target.closest('.card-menu-btn')) {
+    closeAllMenus();
+  }
+});
 
 // ── DELETE REPORT ────────────────────────────────────────────────────────────
 let _deleteFile = null;
@@ -758,11 +759,6 @@ function openDeleteModal(file, headline) {
 function closeDeleteModal() {
   document.getElementById('delete-modal').classList.remove('open');
   _deleteFile = null;
-}
-
-function clearGhToken() {
-  localStorage.removeItem('gh_config');
-  alert('Saved GitHub config cleared.');
 }
 
 async function confirmDelete() {
