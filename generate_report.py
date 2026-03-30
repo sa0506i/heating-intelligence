@@ -12,10 +12,11 @@ import pathlib
 import sys
 import urllib.request
 import urllib.error
+import time
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL = "claude-opus-4-6"
+MODEL = "claude-sonnet-4-6"
 REPORTS_DIR = pathlib.Path("reports")
 MAX_TOKENS = 8000
 
@@ -285,6 +286,7 @@ def call_claude_api(api_key: str, user_prompt: str) -> dict:
                     "content": "",   # Anthropic web_search: results are in the next assistant turn
                 })
             messages.append({"role": "user", "content": tool_results})
+            time.sleep(5)  # avoid rate limit between tool-use iterations
             continue
 
         # Any other stop reason (max_tokens, etc.)
