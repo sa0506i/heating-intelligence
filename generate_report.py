@@ -17,7 +17,7 @@ import urllib.error
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL = "claude-opus-4-6"
 REPORTS_DIR = pathlib.Path("reports")
-MAX_TOKENS = 4000
+MAX_TOKENS = 8000
 
 SYSTEM_PROMPT = """You are a senior industry analyst assistant specializing in the residential heating sector.
 You generate a structured weekly intelligence report for two senior executives:
@@ -213,16 +213,15 @@ def get_iso_week():
 def get_report_filename(year, week):
     return f"{year}-W{week:02d}.json"
 
-def call_claude_api(api_key: str, user_prompt: str) -> dict:
-    """Call Anthropic API with web search tool enabled."""
+def _api_call(api_key: str, messages: list) -> dict:
+    """Single raw API call. Returns the parsed response dict."""
     payload = {
         "model": MODEL,
         "max_tokens": MAX_TOKENS,
         "system": SYSTEM_PROMPT,
         "tools": [{"type": "web_search_20250305", "name": "web_search"}],
-        "messages": [{"role": "user", "content": user_prompt}]
+        "messages": messages,
     }
-
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
@@ -232,26 +231,66 @@ def call_claude_api(api_key: str, user_prompt: str) -> dict:
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         },
-        method="POST"
+        method="POST",
     )
-
     try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
-            raw = json.loads(resp.read().decode("utf-8"))
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8")
         raise RuntimeError(f"API error {e.code}: {body}")
 
-    # Extract text from response (may contain tool_use blocks)
-    text_parts = [block["text"] for block in raw.get("content", []) if block.get("type") == "text"]
-    full_text = "\n".join(text_parts).strip()
 
-    # Strip accidental markdown fences
-    if full_text.startswith("```"):
-        full_text = full_text.split("\n", 1)[-1]
-        full_text = full_text.rsplit("```", 1)[0]
+def call_claude_api(api_key: str, user_prompt: str) -> dict:
+    """Agentic tool-use loop: keep calling until stop_reason == end_turn
+    and a text block containing JSON is returned."""
+    messages = [{"role": "user", "content": user_prompt}]
+    max_iterations = 20
 
-    return json.loads(full_text)
+    for iteration in range(max_iterations):
+        print(f"    API call {iteration + 1}...")
+        raw = _api_call(api_key, messages)
+
+        stop_reason = raw.get("stop_reason", "")
+        content     = raw.get("content", [])
+
+        # Append assistant turn to messages
+        messages.append({"role": "assistant", "content": content})
+
+        # If Claude finished, extract the JSON text block
+        if stop_reason == "end_turn":
+            text_parts = [b["text"] for b in content if b.get("type") == "text"]
+            full_text = "\n".join(text_parts).strip()
+            if not full_text:
+                raise RuntimeError("end_turn reached but no text block found in response.")
+            # Strip accidental markdown fences
+            if full_text.startswith("```"):
+                full_text = full_text.split("\n", 1)[-1]
+                full_text = full_text.rsplit("```", 1)[0].strip()
+            return json.loads(full_text)
+
+        # If Claude wants to use a tool, collect all tool_use blocks,
+        # build tool_result blocks, and continue the loop
+        if stop_reason == "tool_use":
+            tool_results = []
+            for block in content:
+                if block.get("type") != "tool_use":
+                    continue
+                # web_search results are already embedded in the response by the API —
+                # we just need to acknowledge each tool_use with an empty tool_result
+                # so the conversation can continue.
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block["id"],
+                    "content": "",   # Anthropic web_search: results are in the next assistant turn
+                })
+            messages.append({"role": "user", "content": tool_results})
+            continue
+
+        # Any other stop reason (max_tokens, etc.)
+        raise RuntimeError(f"Unexpected stop_reason: {stop_reason!r}")
+
+    raise RuntimeError(f"Tool-use loop did not complete after {max_iterations} iterations.")
 
 
 def load_previous_report(index: dict) -> dict | None:
