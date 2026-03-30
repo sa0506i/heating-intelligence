@@ -598,7 +598,8 @@ function buildReportHTML(r) {
         </div>
         <div class="section-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-            \${(()=>{ const ta=sections.trade_associations||[]; const mid=Math.ceil(ta.length/2); return '<div>'+renderItems(ta.slice(0,mid),'trade')+'</div><div>'+renderItems(ta.slice(mid),'trade')+'</div>'; })()}
+            <div>${renderItems((sections.trade_associations||[]).slice(0, Math.ceil((sections.trade_associations||[]).length/2)), 'trade')}</div>
+            <div>${renderItems((sections.trade_associations||[]).slice(Math.ceil((sections.trade_associations||[]).length/2)), 'trade')}</div>
           </div>
         </div>
       </div>
