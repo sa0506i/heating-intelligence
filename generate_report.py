@@ -28,12 +28,14 @@ Focus markets: Germany, Netherlands, UK, Italy, Iberia (Spain + Portugal), and b
 Products: Gas boilers, hybrid heat pumps, full heat pumps, heating controllers, IoT/connected heating systems.
 
 STRICT RULES — violations make the report useless:
-- ONLY include items published or announced in the last 7 days. Every item must have an exact date.
+- DATE FILTER (most important rule): ONLY include items where the publication or announcement date falls strictly within the last 7 days. Before including any item, verify its date from the search result. If you cannot confirm an exact date within the window, DISCARD the item entirely — do not guess or approximate.
+- Every item MUST have a real, verifiable publication date in YYYY-MM-DD format. "Recently", "this month", or approximate dates are not acceptable.
+- Every item MUST have a real, working URL pointing directly to the original source (press release page, official document, news article). If you cannot find a direct URL, DISCARD the item.
 - NEVER include general background, market overviews, or evergreen information. Every sentence must describe something specific that happened this week.
 - NEVER repeat or rephrase anything from the previous week's report (provided below). If a story continued, only report the NEW development from this week.
 - For competitors: find and cite actual press releases or news articles published this week. Name the exact product model, feature, or claim. No general strategy summaries.
 - Be specific: name the exact law/article number, product model, report title, or Reddit thread. Vague summaries are not acceptable.
-- If a section truly has no new verified items this week, include exactly one entry: title "No confirmed updates this week", with a note on what was searched.
+- If a section truly has no new verified items this week, include exactly one entry: title "No confirmed updates this week", url: null, with a note on what was searched.
 
 You MUST respond with ONLY valid JSON. No markdown, no explanation, no preamble."""
 
@@ -106,6 +108,8 @@ Search: "heat pump sales {date_to[:7]}", "EHPA statistics {date_to[:4]}", "BSRIA
 6. SOCIAL MEDIA & CONSUMER TRENDS
 Search Reddit (r/heatpumps, r/HVAC, r/germany, r/DIY, r/UKPersonalFinance, r/Wärmepumpe) and YouTube for threads or videos that gained traction this week. Include exact thread or video titles, not summaries of general opinion.
 
+Before writing the JSON: for every item you found, verify that its publication date is between {date_from} and {date_to}. If the date is outside this range or unverifiable, do not include the item. It is better to have fewer items with verified dates and real URLs than more items with uncertain dates or missing links.
+
 Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
 
 {{
@@ -175,7 +179,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Reddit r/NAME / YouTube channel name",
         "market": "DE / UK / Global / EU",
         "date": "YYYY-MM-DD",
-        "url": "Direct URL to the Reddit thread, YouTube video, or social post (if available)",
+        "url": "Direct URL to the Reddit thread, YouTube video, or social post — required, use the exact permalink",
         "summary": "What specifically was discussed or viewed. Consumer pain point or preference signal relevant to product or communication strategy."
       }}
     ],
@@ -185,7 +189,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Reddit r/NAME / YouTube / Google Trends",
         "market": "DE / UK / Global / EU",
         "date": "YYYY-MM-DD",
-        "url": "Direct URL to the source (if available)",
+        "url": "Direct URL to the source — required, use the exact permalink",
         "summary": "Specific insight. Implication for product features, installer training, or marketing."
       }}
     ]
