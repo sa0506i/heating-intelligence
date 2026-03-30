@@ -125,6 +125,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Official source + URL if available",
         "market": "DE / NL / UK / IT / ES / PT / EU",
         "date": "YYYY-MM-DD",
+        "url": "Direct URL to the source document or article (required)",
         "summary": "What specifically happened this week. Include article numbers or specific provisions. Why it matters for boiler or heat pump portfolio."
       }}
     ],
@@ -134,6 +135,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "CEN / DIN / BSI / NEN / UNI",
         "market": "EU / DE / UK / NL",
         "date": "YYYY-MM-DD",
+        "url": "Direct URL to the norm publication or consultation page (required)",
         "summary": "What specifically was published or changed. Engineering impact: test conditions, efficiency thresholds, certification implications."
       }}
     ],
@@ -143,6 +145,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Press release title and URL or news source",
         "market": "DE / UK / EU / Global",
         "date": "YYYY-MM-DD",
+        "url": "Direct URL to press release or news article (required)",
         "summary": "Exact product features, specs, pricing, or markets targeted. Direct competitive implication for our hybrid/HP/boiler portfolio."
       }}
     ],
@@ -152,6 +155,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Publisher name",
         "market": "Region covered",
         "date": "YYYY-MM-DD",
+        "url": "Direct URL to the report or dataset page (required)",
         "summary": "Specific data points (numbers, %, forecasts). What it signals for portfolio or go-to-market planning."
       }}
     ],
@@ -161,6 +165,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Organisation name (e.g. EHPA, EHI, ZVSHK, HPA, BEAMA)",
         "market": "EU / DE / UK / IT / ES / NL",
         "date": "YYYY-MM-DD",
+        "url": "Direct URL to the press release or statement (required)",
         "summary": "Specific claim, statistic, or policy position stated. Why it matters for heating portfolio strategy or regulatory positioning."
       }}
     ],
@@ -170,6 +175,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Reddit r/NAME / YouTube channel name",
         "market": "DE / UK / Global / EU",
         "date": "YYYY-MM-DD",
+        "url": "Direct URL to the Reddit thread, YouTube video, or social post (if available)",
         "summary": "What specifically was discussed or viewed. Consumer pain point or preference signal relevant to product or communication strategy."
       }}
     ],
@@ -179,6 +185,7 @@ Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
         "source": "Reddit r/NAME / YouTube / Google Trends",
         "market": "DE / UK / Global / EU",
         "date": "YYYY-MM-DD",
+        "url": "Direct URL to the source (if available)",
         "summary": "Specific insight. Implication for product features, installer training, or marketing."
       }}
     ]
