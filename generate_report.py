@@ -100,22 +100,32 @@ Rules:
 
 # ── RAW API CALL ─────────────────────────────────────────────────────────────
 def _api_call(api_key: str, payload: dict) -> dict:
+    """Raw API call with automatic retry on 429 rate-limit errors."""
     data = json.dumps(payload).encode("utf-8")
-    req  = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=data,
-        headers={
-            "x-api-key":         api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type":      "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"API error {e.code}: {e.read().decode()}")
+    wait = 60  # start with 60s on first 429
+    for attempt in range(6):
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=data,
+            headers={
+                "x-api-key":         api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type":      "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8")
+            if e.code == 429:
+                print(f"    Rate limited — waiting {wait}s before retry {attempt+1}/6...")
+                time.sleep(wait)
+                wait = min(wait * 2, 300)  # exponential backoff, cap at 5 min
+                continue
+            raise RuntimeError(f"API error {e.code}: {body}")
+    raise RuntimeError("Exceeded retry limit after repeated 429 rate-limit errors.")
 
 
 # ── PHASE 1: run research loop ───────────────────────────────────────────────
@@ -153,11 +163,11 @@ def run_research(api_key: str, today: datetime.date) -> str:
                 for b in content if b.get("type") == "tool_use"
             ]
             messages.append({"role": "user", "content": tool_results})
-            time.sleep(3)
+            time.sleep(15)
             continue
         if stop_reason == "max_tokens":
             messages.append({"role": "user", "content": "Continue the findings list."})
-            time.sleep(3)
+            time.sleep(15)
             continue
         raise RuntimeError(f"Unexpected stop_reason in research: {stop_reason!r}")
 
@@ -195,7 +205,7 @@ def run_synthesis(api_key: str, findings: str, prev_titles: list, today: datetim
         if stop_reason == "max_tokens":
             # Very unlikely at 6k tokens for JSON-only output, but handle gracefully
             user_msg = "Continue exactly from where you left off."
-            time.sleep(3)
+            time.sleep(15)
             continue
         raise RuntimeError(f"Unexpected stop_reason in synthesis: {stop_reason!r}")
 
