@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heating Intelligence Weekly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a18;
+    --ink2: #3d3d38;
+    --ink3: #6b6b64;
+    --paper: #f5f2eb;
+    --paper2: #edeadf;
+    --paper3: #e3dfd2;
+    --accent: #c84b2f;
+    --accent2: #e8732a;
+    --blue: #1d4e89;
+    --green: #2d6a4f;
+    --gold: #b8860b;
+    --rule: #c8c4b4;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  /* ── MASTHEAD ── */
+  .masthead {
+    border-bottom: 3px double var(--ink);
+    padding: 1.5rem 2rem 1rem;
+    text-align: center;
+    position: relative;
+  }
+  .masthead-kicker {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink3);
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+  }
+  .masthead-title {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .masthead-title em { color: var(--accent); font-style: italic; }
+  .masthead-rule {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0.75rem auto;
+    max-width: 600px;
+  }
+  .masthead-rule hr { flex: 1; border: none; border-top: 1px solid var(--ink); }
+  .masthead-rule span { font-size: 11px; letter-spacing: 0.12em; color: var(--ink3); white-space: nowrap; }
+  .masthead-meta {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    font-size: 11px;
+    color: var(--ink3);
+    letter-spacing: 0.06em;
+  }
+  .masthead-meta strong { color: var(--ink2); font-weight: 500; }
+
+  /* ── NAV ── */
+  .nav {
+    background: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 2rem;
+    overflow-x: auto;
+  }
+  .nav-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.2s;
+    border-bottom: 2px solid transparent;
+  }
+  .nav-btn:hover { color: #fff; }
+  .nav-btn.active { color: #fff; border-bottom-color: var(--accent); }
+  .nav-spacer { flex: 1; }
+  .nav-pdf {
+    background: var(--accent);
+    color: #fff !important;
+    border-radius: 3px;
+    padding: 0.4rem 0.9rem !important;
+    font-weight: 500 !important;
+    margin-left: 0.5rem;
+    border-bottom: none !important;
+  }
+  .nav-pdf:hover { background: #a83d24 !important; }
+
+  /* ── LAYOUT ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  /* ── LOADING / ERROR STATES ── */
+  .state-box {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--ink3);
+  }
+  .state-box h2 { font-family: var(--serif); font-size: 1.8rem; color: var(--ink2); margin-bottom: 0.5rem; }
+  .state-box p { font-size: 14px; line-height: 1.7; max-width: 400px; margin: 0 auto; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2px solid var(--paper3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── REPORT HEADER ── */
+  .report-header {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .report-date {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+  }
+  .report-headline {
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  .report-tags { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .tag {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--rule);
+    color: var(--ink3);
+    border-radius: 2px;
+  }
+
+  /* ── SECTIONS GRID ── */
+  .sections-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 720px) { .sections-grid { grid-template-columns: 1fr; } }
+
+  .section-card {
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .section-card.full { grid-column: 1 / -1; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper2);
+  }
+  .section-icon {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--ink2);
+  }
+  .section-body { padding: 1rem; }
+
+  /* ── ITEMS ── */
+  .item { padding: 0.6rem 0; border-bottom: 1px solid var(--paper3); }
+  .item:last-child { border-bottom: none; padding-bottom: 0; }
+  .item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1.4;
+    margin-bottom: 0.2rem;
+  }
+  .item-meta {
+    font-size: 11px;
+    color: var(--ink3);
+    margin-bottom: 0.3rem;
+  }
+  .item-meta span { color: var(--accent); font-weight: 500; }
+  .item-body { font-size: 12px; color: var(--ink2); line-height: 1.6; }
+
+  .pill {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-weight: 500;
+    margin-right: 4px;
+  }
+  .pill-leg { background: #dbeafe; color: #1d4e89; }
+  .pill-comp { background: #fce7f3; color: #9d174d; }
+  .pill-trend { background: #d1fae5; color: #065f46; }
+  .pill-market { background: #fef3c7; color: #92400e; }
+  .pill-norm { background: #ede9fe; color: #5b21b6; }
+
+  /* ── EXECUTIVE SUMMARY ── */
+  .exec-summary {
+    background: var(--ink);
+    color: #f0ede4;
+    padding: 1.5rem;
+    border-radius: 2px;
+    margin-bottom: 1.5rem;
+  }
+  .exec-summary .kicker {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+  .exec-summary p { font-size: 14px; line-height: 1.75; color: #d4d0c4; }
+  .exec-summary strong { color: #f0ede4; font-weight: 500; }
+
+  /* ── SIGNAL METER ── */
+  .signals { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .signal {
+    flex: 1; min-width: 120px;
+    border: 1px solid var(--rule);
+    padding: 0.75rem;
+    border-radius: 2px;
+    text-align: center;
+  }
+  .signal-val {
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    line-height: 1;
+    margin-bottom: 0.2rem;
+  }
+  .signal-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
+  .signal.hot .signal-val { color: var(--accent); }
+  .signal.warm .signal-val { color: var(--gold); }
+  .signal.cool .signal-val { color: var(--blue); }
+
+  /* ── ARCHIVE PAGE ── */
+  .archive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .archive-card {
+    border: 1px solid var(--rule);
+    padding: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    border-radius: 2px;
+  }
+  .archive-card:hover { border-color: var(--accent); background: var(--paper2); }
+  .archive-card .date { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); font-weight: 500; margin-bottom: 0.3rem; }
+  .archive-card .headline { font-family: var(--serif); font-size: 1rem; color: var(--ink); line-height: 1.3; margin-bottom: 0.4rem; }
+  .archive-card .preview { font-size: 12px; color: var(--ink3); line-height: 1.5; }
+
+  /* ── PRINT / PDF ── */
+  @media print {
+    .nav, .masthead-meta { display: none !important; }
+    .page { display: block !important; }
+    #page-archive { display: none !important; }
+    body { background: white; }
+    .exec-summary { border: 2px solid #333; background: #f8f8f8; }
+    .exec-summary p, .exec-summary strong { color: #333 !important; }
+    .exec-summary .kicker { color: #c84b2f !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- MASTHEAD -->
+<header class="masthead" id="masthead-print">
+  <div class="masthead-kicker">Industry Intelligence Report</div>
+  <div class="masthead-title">Heating <em>Intelligence</em> Weekly</div>
+  <div class="masthead-rule">
+    <hr><span>Residential Heating · EU Markets · Boilers · Heat Pumps · IoT</span><hr>
+  </div>
+  <div class="masthead-meta">
+    <span>Edition <strong id="edition-num">—</strong></span>
+    <span>Week of <strong id="edition-date">—</strong></span>
+    <span>Head of Portfolio &amp; Engineering</span>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPage('report')">Current Report</button>
+  <button class="nav-btn" onclick="showPage('archive')">Archive</button>
+  <div class="nav-spacer"></div>
+  <button class="nav-btn nav-pdf" onclick="exportPDF()">Export PDF</button>
+</nav>
+
+<!-- CURRENT REPORT PAGE -->
+<div id="page-report" class="page active">
+  <div class="container">
+    <div id="report-loading" class="state-box">
+      <div class="spinner"></div>
+      <h2>Loading latest report…</h2>
+      <p>Fetching this week's heating industry intelligence.</p>
+    </div>
+    <div id="report-content" style="display:none"></div>
+    <div id="report-empty" class="state-box" style="display:none">
+      <h2>No report yet</h2>
+      <p>The weekly report hasn't been generated yet. It runs every Monday at 8:00 AM CET via GitHub Actions.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHIVE PAGE -->
+<div id="page-archive" class="page">
+  <div class="container">
+    <div style="margin-bottom:1.5rem; border-bottom:1px solid var(--rule); padding-bottom:1rem;">
+      <div class="report-date">Report Archive</div>
+      <div class="report-headline" style="font-family:var(--serif)">Previous Editions</div>
+    </div>
+    <div id="archive-grid" class="archive-grid"></div>
+    <div id="archive-empty" class="state-box" style="display:none">
+      <h2>No archive yet</h2>
+      <p>Previous reports will appear here after the first few weeks.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+// Reports are stored as JSON files in /reports/ directory
+// Format: reports/YYYY-WW.json (ISO week number)
+// The index file reports/index.json lists all available reports
+
+const REPORTS_DIR = './reports/';
+
+// ── PAGE ROUTING ────────────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'archive') loadArchive();
+}
+
+// ── LOAD CURRENT REPORT ─────────────────────────────────────────────────────
+async function loadCurrentReport() {
+  try {
+    const idxRes = await fetch(REPORTS_DIR + 'index.json?t=' + Date.now());
+    if (!idxRes.ok) throw new Error('no index');
+    const idx = await idxRes.json();
+    if (!idx.reports || idx.reports.length === 0) throw new Error('empty');
+
+    const latest = idx.reports[0];
+    const repRes = await fetch(REPORTS_DIR + latest.file + '?t=' + Date.now());
+    if (!repRes.ok) throw new Error('no report file');
+    const report = await repRes.json();
+
+    renderReport(report, latest);
+  } catch(e) {
+    document.getElementById('report-loading').style.display = 'none';
+    document.getElementById('report-empty').style.display = 'block';
+  }
+}
+
+// ── RENDER REPORT ────────────────────────────────────────────────────────────
+function renderReport(report, meta) {
+  document.getElementById('report-loading').style.display = 'none';
+  document.getElementById('edition-num').textContent = meta.edition || '—';
+  document.getElementById('edition-date').textContent = formatDate(meta.date);
+
+  const html = buildReportHTML(report);
+  const el = document.getElementById('report-content');
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function buildReportHTML(r) {
+  const signals = r.signals || {};
+  const sections = r.sections || {};
+
+  return `
+    <!-- Executive Summary -->
+    <div class="exec-summary">
+      <div class="kicker">Executive Summary — Portfolio &amp; Engineering</div>
+      <p>${r.executive_summary || 'No summary available.'}</p>
+    </div>
+
+    <!-- Signal Meters -->
+    <div class="signals">
+      <div class="signal hot">
+        <div class="signal-val">${signals.regulatory_pressure || '—'}</div>
+        <div class="signal-label">Regulatory Pressure</div>
+      </div>
+      <div class="signal warm">
+        <div class="signal-val">${signals.market_momentum || '—'}</div>
+        <div class="signal-label">Market Momentum</div>
+      </div>
+      <div class="signal cool">
+        <div class="signal-val">${signals.competitor_activity || '—'}</div>
+        <div class="signal-label">Competitor Activity</div>
+      </div>
+      <div class="signal warm">
+        <div class="signal-val">${signals.social_buzz || '—'}</div>
+        <div class="signal-label">Social Buzz</div>
+      </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="sections-grid">
+
+      <!-- Legislation & Policy -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-icon" style="background:#dbeafe">⚖️</div>
+          <span class="section-label">Legislation &amp; Policy</span>
+        </div>
+        <div class="section-body">
+          ${renderItems(sections.legislation, 'leg')}
+        </div>
+      </div>
+
+      <!-- Norms & Standards -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-icon" style="background:#ede9fe">📐</div>
+          <span class="section-label">Norms &amp; Standards</span>
+        </div>
+        <div class="section-body">
+          ${renderItems(sections.norms, 'norm')}
+        </div>
+      </div>
+
+      <!-- Market Reports -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-icon" style="background:#fef3c7">📊</div>
+          <span class="section-label">Market Reports &amp; Data</span>
+        </div>
+        <div class="section-body">
+          ${renderItems(sections.market, 'market')}
+        </div>
+      </div>
+
+      <!-- Competitor Intelligence -->
+      <div class="section-card">
+        <div class="section-head">
+          <div class="section-icon" style="background:#fce7f3">🔍</div>
+          <span class="section-label">Competitor Intelligence</span>
+        </div>
+        <div class="section-body">
+          ${renderItems(sections.competitors, 'comp')}
+        </div>
+      </div>
+
+      <!-- Social & Trends (full width) -->
+      <div class="section-card full">
+        <div class="section-head">
+          <div class="section-icon" style="background:#d1fae5">📱</div>
+          <span class="section-label">Social Media &amp; Trending Topics</span>
+        </div>
+        <div class="section-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div>${renderItems(sections.social_left, 'trend')}</div>
+            <div>${renderItems(sections.social_right, 'trend')}</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Portfolio Implications -->
+    ${r.portfolio_implications ? `
+    <div style="margin-top:1.5rem; padding:1.25rem; border:1px solid var(--rule); border-left:3px solid var(--accent);">
+      <div class="section-label" style="margin-bottom:0.5rem;">Portfolio &amp; Engineering Implications</div>
+      <div style="font-size:13px;color:var(--ink2);line-height:1.7;">${r.portfolio_implications}</div>
+    </div>` : ''}
+  `;
+}
+
+function renderItems(items, type) {
+  if (!items || items.length === 0) return '<div style="font-size:12px;color:var(--ink3);padding:0.5rem 0;">No items this week.</div>';
+  return items.map(item => `
+    <div class="item">
+      <div class="item-title">
+        <span class="pill pill-${type}">${pillLabel(type)}</span>${item.title}
+      </div>
+      <div class="item-meta"><span>${item.source || ''}</span>${item.market ? ' · ' + item.market : ''} ${item.date ? '· ' + item.date : ''}</div>
+      <div class="item-body">${item.summary}</div>
+    </div>
+  `).join('');
+}
+
+function pillLabel(type) {
+  return { leg: 'EU/National', norm: 'Standard', comp: 'Competitor', trend: 'Trending', market: 'Market' }[type] || type;
+}
+
+// ── ARCHIVE ──────────────────────────────────────────────────────────────────
+async function loadArchive() {
+  const grid = document.getElementById('archive-grid');
+  grid.innerHTML = '<div style="color:var(--ink3);font-size:13px;">Loading…</div>';
+  try {
+    const idxRes = await fetch(REPORTS_DIR + 'index.json?t=' + Date.now());
+    if (!idxRes.ok) throw new Error('no index');
+    const idx = await idxRes.json();
+    const reports = idx.reports || [];
+    if (reports.length === 0) {
+      grid.innerHTML = '';
+      document.getElementById('archive-empty').style.display = 'block';
+      return;
+    }
+    grid.innerHTML = reports.map(r => `
+      <div class="archive-card" onclick="loadArchiveReport('${r.file}', '${r.edition}', '${r.date}')">
+        <div class="date">Edition ${r.edition} · ${formatDate(r.date)}</div>
+        <div class="headline">${r.headline || 'Heating Intelligence Weekly'}</div>
+        <div class="preview">${r.preview || 'Click to read this edition.'}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    grid.innerHTML = '';
+    document.getElementById('archive-empty').style.display = 'block';
+  }
+}
+
+async function loadArchiveReport(file, edition, date) {
+  showPageDirect('report');
+  document.getElementById('report-content').style.display = 'none';
+  document.getElementById('report-loading').style.display = 'block';
+  document.getElementById('edition-num').textContent = edition;
+  document.getElementById('edition-date').textContent = formatDate(date);
+  try {
+    const res = await fetch(REPORTS_DIR + file + '?t=' + Date.now());
+    const report = await res.json();
+    document.getElementById('report-loading').style.display = 'none';
+    const html = buildReportHTML(report);
+    const el = document.getElementById('report-content');
+    el.innerHTML = html;
+    el.style.display = 'block';
+  } catch(e) {
+    document.getElementById('report-loading').style.display = 'none';
+    document.getElementById('report-empty').style.display = 'block';
+  }
+}
+
+function showPageDirect(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelector('.nav-btn').classList.add('active');
+}
+
+// ── PDF EXPORT ───────────────────────────────────────────────────────────────
+function exportPDF() {
+  window.print();
+}
+
+// ── UTILS ────────────────────────────────────────────────────────────────────
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch(e) { return dateStr; }
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+loadCurrentReport();
+</script>
+</body>
+</html>

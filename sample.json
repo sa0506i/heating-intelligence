@@ -1,0 +1,96 @@
+{
+  "executive_summary": "This is a sample report to demonstrate the dashboard layout. Once GitHub Actions runs for the first time on Monday, real weekly intelligence will replace this placeholder. The system monitors EU legislation, competitor moves, market reports, and social media trends across Germany, Netherlands, UK, Italy, and Iberia. Your portfolio team will receive curated intelligence on boilers, hybrid heat pumps, and IoT controls every week.",
+  "signals": {
+    "regulatory_pressure": "High",
+    "market_momentum": "Medium",
+    "competitor_activity": "Medium",
+    "social_buzz": "High"
+  },
+  "sections": {
+    "legislation": [
+      {
+        "title": "Sample: German GEG Amendment — Boiler Phase-out Timeline",
+        "source": "Bundesministerium für Wohnen",
+        "market": "DE",
+        "date": "this week",
+        "summary": "Placeholder entry. Real legislation updates will appear here every Monday. The GEG remains the primary regulatory driver for your German boiler portfolio, with 2026 compliance deadlines approaching."
+      },
+      {
+        "title": "Sample: EU ETS2 Buildings — Pricing Mechanism Update",
+        "source": "European Commission",
+        "market": "EU",
+        "date": "this week",
+        "summary": "Placeholder. ETS2 coverage of buildings will directly affect consumer economics for fossil fuel heating, accelerating demand for hybrid and full heat pump solutions."
+      }
+    ],
+    "norms": [
+      {
+        "title": "Sample: EN 14511 Heat Pump Test Conditions Revision",
+        "source": "CEN TC 113",
+        "market": "EU",
+        "date": "this week",
+        "summary": "Placeholder. Revisions to heat pump testing standards will be tracked here. Changes to A7/W35 test conditions affect SCOP ratings and product classification across your portfolio."
+      }
+    ],
+    "competitors": [
+      {
+        "title": "Sample: Vaillant — New aroTHERM Plus Gen2 Announcement",
+        "source": "Vaillant Press",
+        "market": "DE / EU",
+        "date": "this week",
+        "summary": "Placeholder. Competitor product launches and announcements will appear here. Real-time tracking of Bosch, Vaillant, Viessmann, Worcester Bosch, Daikin, and others."
+      },
+      {
+        "title": "Sample: Baxi — UK Partnership with Social Housing Installer",
+        "source": "HVR Magazine",
+        "market": "UK",
+        "date": "this week",
+        "summary": "Placeholder. Channel and partnership news from competitors in key markets including UK, where social housing electrification is a significant growth vector."
+      }
+    ],
+    "market": [
+      {
+        "title": "Sample: EHPA Q1 Heat Pump Sales — EU Market Data",
+        "source": "European Heat Pump Association",
+        "market": "EU",
+        "date": "this week",
+        "summary": "Placeholder. New market reports from EHPA, BSRIA, Wood Mackenzie, and national industry bodies will be summarized here with key takeaways for portfolio planning."
+      }
+    ],
+    "social_left": [
+      {
+        "title": "Sample: Reddit r/heatpumps — Hybrid System Discussions Trending",
+        "source": "Reddit",
+        "market": "UK / DE",
+        "date": "this week",
+        "summary": "Placeholder. Consumer sentiment from Reddit communities will be tracked. Hybrid heat pump discussions show high consumer interest but installation complexity concerns."
+      },
+      {
+        "title": "Sample: YouTube — DIY Heat Pump Sizing Videos Gaining Views",
+        "source": "YouTube",
+        "market": "Global",
+        "date": "this week",
+        "summary": "Placeholder. Trending content signals where consumer education gaps exist — opportunity for brand content strategy and installer training focus areas."
+      }
+    ],
+    "social_right": [
+      {
+        "title": "Sample: Instagram — #WärmepumpeJa Campaign Engagement",
+        "source": "Instagram",
+        "market": "DE",
+        "date": "this week",
+        "summary": "Placeholder. Social campaigns and trending hashtags in key markets will be monitored to track consumer perception and advocacy narratives around heating technology."
+      },
+      {
+        "title": "Sample: TikTok — Heating Bill Content Viral in UK",
+        "source": "TikTok",
+        "market": "UK",
+        "date": "this week",
+        "summary": "Placeholder. Viral content around energy costs directly influences consumer decisions. Tracking this helps anticipate demand shifts and communication strategy."
+      }
+    ]
+  },
+  "portfolio_implications": "This is a sample portfolio implications section. Once the automated report runs, you will receive: (1) specific analysis of how the week's legislative and market developments affect your boiler and hybrid heat pump portfolio prioritization across EU markets; (2) engineering implications from new competitor product announcements and updated norms; (3) recommended strategic considerations for your upcoming portfolio and roadmap decisions.\n\nThe report is generated every Monday at 08:00 CET by Claude using live web search across legislation, industry news, competitor press, and social media. It is personalized for your dual role as Head of Portfolio Management and Head of Engineering.",
+  "week_headline": "Sample Report — Real Intelligence Starts Next Monday",
+  "week_preview": "Placeholder report demonstrating the dashboard. Live data from next Monday."
+}
