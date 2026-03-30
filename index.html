@@ -245,6 +245,7 @@
   .pill-trend { background: #d1fae5; color: #065f46; }
   .pill-market { background: #fef3c7; color: #92400e; }
   .pill-norm { background: #ede9fe; color: #5b21b6; }
+  .pill-trade { background: #e0f2fe; color: #075985; }
 
   /* ── EXECUTIVE SUMMARY ── */
   .exec-summary {
@@ -394,7 +395,6 @@
   <div class="masthead-meta">
     <span>Edition <strong id="edition-num">—</strong></span>
     <span>Week of <strong id="edition-date">—</strong></span>
-    <span>Head of Portfolio &amp; Engineering</span>
   </div>
 </header>
 
@@ -515,7 +515,7 @@ function buildReportHTML(r) {
   return `
     <!-- Executive Summary -->
     <div class="exec-summary">
-      <div class="kicker">Executive Summary — Portfolio &amp; Engineering</div>
+      <div class="kicker">Executive Summary</div>
       <p>${r.executive_summary || 'No summary available.'}</p>
     </div>
 
@@ -588,6 +588,19 @@ function buildReportHTML(r) {
 
 
 
+      <!-- Trade Associations (full width) -->
+      <div class="section-card full">
+        <div class="section-head">
+          <div class="section-icon" style="background:#e0f2fe">🏛️</div>
+          <span class="section-label">Trade Associations &amp; Industry Bodies</span>
+        </div>
+        <div class="section-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            \${(()=>{ const ta=sections.trade_associations||[]; const mid=Math.ceil(ta.length/2); return '<div>'+renderItems(ta.slice(0,mid),'trade')+'</div><div>'+renderItems(ta.slice(mid),'trade')+'</div>'; })()}
+          </div>
+        </div>
+      </div>
+
       <!-- Social & Trends (full width) -->
       <div class="section-card full">
         <div class="section-head">
@@ -627,7 +640,7 @@ function renderItems(items, type) {
 }
 
 function pillLabel(type) {
-  return { leg: 'EU/National', norm: 'Standard', comp: 'Competitor', trend: 'Trending', market: 'Market' }[type] || type;
+  return { leg: 'EU/National', norm: 'Standard', comp: 'Competitor', trend: 'Trending', market: 'Market', trade: 'Association' }[type] || type;
 }
 
 // ── ARCHIVE ──────────────────────────────────────────────────────────────────
