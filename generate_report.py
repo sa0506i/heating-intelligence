@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Weekly Heating Industry Intelligence Report Generator
-Calls Claude API with web search → saves JSON report → updates index
-Runs every Monday 08:00 CET via GitHub Actions
+Two-phase approach:
+  Phase 1 — Research: Claude searches the web, returns raw findings as plain text (cheap)
+  Phase 2 — Synthesis: Claude converts findings to structured JSON (no web search, no loop)
 """
 
 import os
@@ -16,196 +17,195 @@ import time
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL = "claude-sonnet-4-6"
+MODEL       = "claude-sonnet-4-6"
 REPORTS_DIR = pathlib.Path("reports")
-MAX_TOKENS = 8000
 
-SYSTEM_PROMPT = """You are a senior industry analyst assistant specializing in the residential heating sector.
-You generate a structured weekly intelligence report for two senior executives:
-1. Head of Portfolio and Product Management — Boilers, Hybrid Heat Pumps, Heat Pumps (EU)
-2. Head of Engineering
+# Phase 1: enough for web search + plain-text findings summary
+RESEARCH_MAX_TOKENS = 8000
+# Phase 2: JSON output only — findings are already summarised
+SYNTHESIS_MAX_TOKENS = 6000
 
-Focus markets: Germany, Netherlands, UK, Italy, Iberia (Spain + Portugal), and broader EU.
-Products: Gas boilers, hybrid heat pumps, full heat pumps, heating controllers, IoT/connected heating systems.
+# ── SYSTEM PROMPTS ──────────────────────────────────────────────────────────
+RESEARCH_SYSTEM = """You are a research assistant for the residential heating industry.
+Your job is to search the web and collect raw findings — nothing else.
 
-STRICT RULES — violations make the report useless:
-- DATE FILTER (most important rule): ONLY include items where the publication or announcement date falls strictly within the last 7 days. Before including any item, verify its date from the search result. If you cannot confirm an exact date within the window, DISCARD the item entirely — do not guess or approximate.
-- Every item MUST have a real, verifiable publication date in YYYY-MM-DD format. "Recently", "this month", or approximate dates are not acceptable.
-- Every item MUST have a real, working URL pointing directly to the original source (press release page, official document, news article). If you cannot find a direct URL, DISCARD the item.
-- NEVER include general background, market overviews, or evergreen information. Every sentence must describe something specific that happened this week.
-- NEVER repeat or rephrase anything from the previous week's report (provided below). If a story continued, only report the NEW development from this week.
-- For competitors: find and cite actual press releases or news articles published this week. Name the exact product model, feature, or claim. No general strategy summaries.
-- Be specific: name the exact law/article number, product model, report title, or Reddit thread. Vague summaries are not acceptable.
-- If a section truly has no new verified items this week, include exactly one entry: title "No confirmed updates this week", url: null, with a note on what was searched.
+DATE RULE: Only include items published between {date_from} and {date_to}.
+Verify the date of every item before including it. Discard anything older or undated.
 
-You MUST respond with ONLY valid JSON. No markdown, no explanation, no preamble."""
+Output a plain numbered list. For each finding write exactly:
+TITLE: <exact headline or press release title>
+SOURCE: <organisation or publication name>
+DATE: <YYYY-MM-DD>
+URL: <direct link to the original page>
+MARKET: <DE / NL / UK / IT / ES / EU / Global>
+FACT: <one sentence — the single most specific fact, number, or claim>
 
+No prose. No sections. No JSON. Just the numbered list."""
 
-def build_user_prompt(previous_report: dict | None, today: datetime.date) -> str:
+SYNTHESIS_SYSTEM = """You are a senior industry analyst for residential heating (boilers, hybrid heat pumps, heat pumps, controllers, IoT).
+You receive a list of verified research findings and must convert them into a structured JSON report.
+You MUST respond with ONLY valid JSON — no markdown, no explanation, no preamble.
+Previous week topics to skip (do not repeat): {prev_titles}"""
+
+# ── PHASE 1: RESEARCH PROMPT ────────────────────────────────────────────────
+def build_research_prompt(today: datetime.date) -> str:
     date_from = (today - datetime.timedelta(days=7)).isoformat()
-    date_to = today.isoformat()
+    date_to   = today.isoformat()
+    return f"""Today is {date_to}. Find items published between {date_from} and {date_to} only.
 
-    prev_section = ""
-    if previous_report:
-        prev_titles = []
-        for section_items in previous_report.get("sections", {}).values():
-            if isinstance(section_items, list):
-                for item in section_items:
-                    if isinstance(item, dict) and item.get("title"):
-                        prev_titles.append(f"- {item['title']}")
-        prev_exec = previous_report.get("executive_summary", "")
-        prev_section = f"""
-PREVIOUS WEEK'S REPORT — do NOT repeat any of these topics or stories, even if still in the news:
-Last week's summary: {prev_exec}
+Search for:
+1. EU/national heating legislation (GEG, EPBD, Boiler Plus UK, EED, Dutch/Italian/Iberian heating rules)
+2. Heating norms updated (EN 14511, EN 12309, DIN, BSI, CEN TC 113)
+3. Competitor press releases: Bosch/Buderus, Vaillant, Viessmann/Carrier, Worcester Bosch, Baxi/BDR Thermea/Remeha, Ariston, Ferroli, Daikin, Mitsubishi Ecodan, LG ThermaV, Samsung, Ideal Heating, Atlantic/De Dietrich
+4. Trade body statements: EHPA, EHI, ZVSHK, BVF, BEAMA, HPA, Assotermica, Techniek Nederland, IDAE
+5. New market reports or sales data (BSRIA, EHPA stats, national installer associations)
+6. Reddit/YouTube trending topics about heat pumps, boilers, heating costs
 
-Items already covered — skip these entirely:
-{chr(10).join(prev_titles[:40])}
+Return a plain numbered list of findings using the exact format specified."""
 
-"""
+# ── PHASE 2: SYNTHESIS PROMPT ───────────────────────────────────────────────
+SYNTHESIS_USER_TEMPLATE = """Convert these verified findings into the JSON report.
+Only use what is in the findings list below — do not invent or add items.
 
-    return f"""Today is {date_to}. Search for residential heating industry news published strictly between {date_from} and {date_to}.
-{prev_section}
-Run the following targeted searches:
+FINDINGS:
+{findings}
 
-1. LEGISLATION & POLICY
-Search: "GEG 2025 Änderung", "Wärmegesetz Bundestag", "Boiler Plus UK 2025", "ErP ecodesign heating {date_to[:4]}", "EED buildings directive", "Dutch heating ban update", "Italy heating Superbonus", "Spain heating regulation", "EPBD implementation" — report only official publications, votes, consultations, or government announcements from this week.
-
-2. NORMS & STANDARDS
-Search: "EN 14511 2025", "EN 12309 heat pump", "DIN Norm Wärmepumpe", "BSI PAS heating", "CEN TC 113 meeting", "heat pump ErP label" — only new publications, drafts, or consultation openings from this week.
-
-3. COMPETITOR PRESS RELEASES (most important section — do multiple searches per company)
-Search each company's recent announcements:
-- "Bosch Thermotechnik press release {date_to[:7]}" / "Buderus Neuheit" / "Junkers Bosch announcement"
-- "Vaillant press release {date_to[:7]}" / "Vaillant aroTHERM" / "Vaillant ecoTEC"
-- "Viessmann Carrier announcement {date_to[:7]}" / "Viessmann Vitocal"
-- "Worcester Bosch news {date_to[:7]}"
-- "Baxi press release" / "Remeha announcement" / "BDR Thermea news"
-- "Ariston press release {date_to[:7]}" / "Ferroli news"
-- "Daikin Europe press release {date_to[:7]}" / "Daikin Altherma"
-- "Mitsubishi Electric heating announcement {date_to[:7]}" / "Ecodan news"
-- "Samsung heat pump announcement" / "LG ThermaV press release"
-- "Ideal Heating news" / "Atlantic heating press release"
-For each: cite exact product model, specific claim or feature, and press release title or URL.
-
-4. TRADE ASSOCIATION & INDUSTRY BODY PRESS RELEASES
-Search the following organisations for press releases, position papers, statistics, or statements published this week:
-- EHPA (European Heat Pump Association): "EHPA press release {date_to[:7]}" / "EHPA statement" / site:ehpa.org news
-- EHI (European Heating Industry): "EHI press release {date_to[:7]}" / "EHI statement" / site:ehi.eu news
-- ZVSHK (Germany — plumbing/heating installers): "ZVSHK Pressemitteilung {date_to[:7]}" / "ZVSHK Stellungnahme"
-- BVF (Germany — surface heating): "BVF Pressemitteilung {date_to[:7]}"
-- HEA (Heating Equipment Association, UK): "HEA press release {date_to[:7]}"
-- BEAMA (UK — manufacturers): "BEAMA press release {date_to[:7]}"
-- UNCSAAL / Assotermica (Italy): "Assotermica comunicato {date_to[:7]}"
-- AFPAC (France): "AFPAC communiqué {date_to[:7]}"
-- Techniek Nederland (NL): "Techniek Nederland persbericht {date_to[:7]}"
-- IDAE (Spain — energy agency): "IDAE nota de prensa {date_to[:7]}"
-- APISOLAR / AFEC (Iberia — heat pump associations): news from this week
-- Heat Pump Association (UK — HPA): "Heat Pump Association press release {date_to[:7]}"
-Report the exact title of each press release or statement, the publishing organisation, and the key claim or data point. Do not paraphrase — quote the specific number, policy position, or product category mentioned.
-
-5. MARKET DATA & REPORTS
-Search: "heat pump sales {date_to[:7]}", "EHPA statistics {date_to[:4]}", "BSRIA heating report", "boiler sales Germany {date_to[:4]}", "warmtepomp verkopen {date_to[:4]}", "heat pump installations UK {date_to[:4]}", "BVF Marktbericht", "ZVSHK Statistik" — only newly released reports or datasets from this week.
-
-6. SOCIAL MEDIA & CONSUMER TRENDS
-Search Reddit (r/heatpumps, r/HVAC, r/germany, r/DIY, r/UKPersonalFinance, r/Wärmepumpe) and YouTube for threads or videos that gained traction this week. Include exact thread or video titles, not summaries of general opinion.
-
-Before writing the JSON: for every item you found, verify that its publication date is between {date_from} and {date_to}. If the date is outside this range or unverifiable, do not include the item. It is better to have fewer items with verified dates and real URLs than more items with uncertain dates or missing links.
-
-Respond ONLY with this exact JSON (raw JSON, no markdown, no backticks):
-
+Output this exact JSON structure:
 {{
-  "executive_summary": "3-4 sentences naming specific products, laws, or companies from this week. No generic observations.",
-
+  "executive_summary": "3-4 sentences on the most important specific developments. Name actual products, laws, companies.",
   "signals": {{
     "regulatory_pressure": "High/Medium/Low",
     "market_momentum": "High/Medium/Low",
     "competitor_activity": "High/Medium/Low",
     "social_buzz": "High/Medium/Low"
   }},
-
   "sections": {{
-    "legislation": [
-      {{
-        "title": "Exact name of law/directive/announcement",
-        "source": "Official source + URL if available",
-        "market": "DE / NL / UK / IT / ES / PT / EU",
-        "date": "YYYY-MM-DD",
-        "url": "Direct URL to the source document or article (required)",
-        "summary": "What specifically happened this week. Include article numbers or specific provisions. Why it matters for boiler or heat pump portfolio."
-      }}
-    ],
-    "norms": [
-      {{
-        "title": "Exact norm designation e.g. EN 14511-3:2025 draft",
-        "source": "CEN / DIN / BSI / NEN / UNI",
-        "market": "EU / DE / UK / NL",
-        "date": "YYYY-MM-DD",
-        "url": "Direct URL to the norm publication or consultation page (required)",
-        "summary": "What specifically was published or changed. Engineering impact: test conditions, efficiency thresholds, certification implications."
-      }}
-    ],
-    "competitors": [
-      {{
-        "title": "CompanyName: Exact product model or announcement title",
-        "source": "Press release title and URL or news source",
-        "market": "DE / UK / EU / Global",
-        "date": "YYYY-MM-DD",
-        "url": "Direct URL to press release or news article (required)",
-        "summary": "Exact product features, specs, pricing, or markets targeted. Direct competitive implication for our hybrid/HP/boiler portfolio."
-      }}
-    ],
-    "market": [
-      {{
-        "title": "Exact report or dataset title",
-        "source": "Publisher name",
-        "market": "Region covered",
-        "date": "YYYY-MM-DD",
-        "url": "Direct URL to the report or dataset page (required)",
-        "summary": "Specific data points (numbers, %, forecasts). What it signals for portfolio or go-to-market planning."
-      }}
-    ],
-    "trade_associations": [
-      {{
-        "title": "Exact press release or statement title",
-        "source": "Organisation name (e.g. EHPA, EHI, ZVSHK, HPA, BEAMA)",
-        "market": "EU / DE / UK / IT / ES / NL",
-        "date": "YYYY-MM-DD",
-        "url": "Direct URL to the press release or statement (required)",
-        "summary": "Specific claim, statistic, or policy position stated. Why it matters for heating portfolio strategy or regulatory positioning."
-      }}
-    ],
-    "social_left": [
-      {{
-        "title": "Exact Reddit thread title or YouTube video title",
-        "source": "Reddit r/NAME / YouTube channel name",
-        "market": "DE / UK / Global / EU",
-        "date": "YYYY-MM-DD",
-        "url": "Direct URL to the Reddit thread, YouTube video, or social post — required, use the exact permalink",
-        "summary": "What specifically was discussed or viewed. Consumer pain point or preference signal relevant to product or communication strategy."
-      }}
-    ],
-    "social_right": [
-      {{
-        "title": "Exact thread/video/trend title",
-        "source": "Reddit r/NAME / YouTube / Google Trends",
-        "market": "DE / UK / Global / EU",
-        "date": "YYYY-MM-DD",
-        "url": "Direct URL to the source — required, use the exact permalink",
-        "summary": "Specific insight. Implication for product features, installer training, or marketing."
-      }}
-    ]
+    "legislation":        [{{"title":"","source":"","market":"","date":"","url":"","summary":""}}],
+    "norms":              [{{"title":"","source":"","market":"","date":"","url":"","summary":""}}],
+    "competitors":        [{{"title":"","source":"","market":"","date":"","url":"","summary":""}}],
+    "market":             [{{"title":"","source":"","market":"","date":"","url":"","summary":""}}],
+    "trade_associations": [{{"title":"","source":"","market":"","date":"","url":"","summary":""}}],
+    "social_left":        [{{"title":"","source":"","market":"","date":"","url":"","summary":""}}],
+    "social_right":       [{{"title":"","source":"","market":"","date":"","url":"","summary":""}}]
   }},
-
-  "portfolio_implications": "Paragraph 1: Which specific legislative or regulatory action from this week directly affects boiler phase-out timelines or heat pump incentives — and by how much. Paragraph 2: Specific competitor moves from this week that create a gap or threat — name the product and market. Paragraph 3: One concrete recommended action or decision trigger based solely on this week's intelligence.",
-
-  "week_headline": "8-12 word headline naming the single most important specific event of this week.",
-  "week_preview": "One sentence max 20 words for archive listing."
+  "portfolio_implications": "3 paragraphs: (1) regulatory impact on boiler/HP portfolio, (2) specific competitor threats or gaps, (3) one recommended action.",
+  "week_headline": "8-12 word headline for the most important event this week.",
+  "week_preview": "One sentence max 20 words."
 }}
 
-Include 3-5 items per section. If no verified news exists for a section, use exactly one entry with title 'No confirmed updates this week'."""
+Rules:
+- 3-5 items per section. If no findings match a section, use {{"title":"No confirmed updates this week","source":"","market":"","date":"{today}","url":null,"summary":"No verified items found this week."}}
+- summary field: 2-3 sentences, specific, no generic statements.
+- Place social findings evenly between social_left and social_right."""
 
-# ── HELPERS ───────────────────────────────────────────────────────────────────
+# ── RAW API CALL ─────────────────────────────────────────────────────────────
+def _api_call(api_key: str, payload: dict) -> dict:
+    data = json.dumps(payload).encode("utf-8")
+    req  = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=data,
+        headers={
+            "x-api-key":         api_key,
+            "anthropic-version": "2023-06-01",
+            "content-type":      "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"API error {e.code}: {e.read().decode()}")
 
+
+# ── PHASE 1: run research loop ───────────────────────────────────────────────
+def run_research(api_key: str, today: datetime.date) -> str:
+    """Run agentic web-search loop. Returns plain-text findings."""
+    date_from = (today - datetime.timedelta(days=7)).isoformat()
+    date_to   = today.isoformat()
+    system    = RESEARCH_SYSTEM.format(date_from=date_from, date_to=date_to)
+    messages  = [{"role": "user", "content": build_research_prompt(today)}]
+    accumulated = []
+
+    for i in range(25):
+        print(f"    Research call {i+1}...")
+        raw         = _api_call(api_key, {
+            "model":      MODEL,
+            "max_tokens": RESEARCH_MAX_TOKENS,
+            "system":     system,
+            "tools":      [{"type": "web_search_20250305", "name": "web_search"}],
+            "messages":   messages,
+        })
+        stop_reason = raw.get("stop_reason", "")
+        content     = raw.get("content", [])
+
+        for block in content:
+            if block.get("type") == "text" and block.get("text","").strip():
+                accumulated.append(block["text"])
+
+        messages.append({"role": "assistant", "content": content})
+
+        if stop_reason == "end_turn":
+            break
+        if stop_reason == "tool_use":
+            tool_results = [
+                {"type": "tool_result", "tool_use_id": b["id"], "content": ""}
+                for b in content if b.get("type") == "tool_use"
+            ]
+            messages.append({"role": "user", "content": tool_results})
+            time.sleep(3)
+            continue
+        if stop_reason == "max_tokens":
+            messages.append({"role": "user", "content": "Continue the findings list."})
+            time.sleep(3)
+            continue
+        raise RuntimeError(f"Unexpected stop_reason in research: {stop_reason!r}")
+
+    return "\n".join(accumulated).strip()
+
+
+# ── PHASE 2: synthesise into JSON ────────────────────────────────────────────
+def run_synthesis(api_key: str, findings: str, prev_titles: list, today: datetime.date) -> dict:
+    """Single API call (no tools) — convert findings to structured JSON."""
+    prev_str  = ", ".join(prev_titles[:30]) if prev_titles else "none"
+    system    = SYNTHESIS_SYSTEM.format(prev_titles=prev_str)
+    user_msg  = SYNTHESIS_USER_TEMPLATE.format(
+        findings=findings,
+        today=today.isoformat(),
+    )
+    accumulated = []
+
+    for i in range(5):
+        print(f"    Synthesis call {i+1}...")
+        raw = _api_call(api_key, {
+            "model":      MODEL,
+            "max_tokens": SYNTHESIS_MAX_TOKENS,
+            "system":     system,
+            "messages":   [{"role": "user", "content": user_msg}],
+        })
+        stop_reason = raw.get("stop_reason", "")
+        content     = raw.get("content", [])
+
+        for block in content:
+            if block.get("type") == "text" and block.get("text","").strip():
+                accumulated.append(block["text"])
+
+        if stop_reason == "end_turn":
+            break
+        if stop_reason == "max_tokens":
+            # Very unlikely at 6k tokens for JSON-only output, but handle gracefully
+            user_msg = "Continue exactly from where you left off."
+            time.sleep(3)
+            continue
+        raise RuntimeError(f"Unexpected stop_reason in synthesis: {stop_reason!r}")
+
+    full_text = "".join(accumulated).strip()
+    if full_text.startswith("```"):
+        full_text = full_text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    return json.loads(full_text)
+
+
+# ── HELPERS ──────────────────────────────────────────────────────────────────
 def get_iso_week():
     today = datetime.date.today()
     year, week, _ = today.isocalendar()
@@ -214,175 +214,83 @@ def get_iso_week():
 def get_report_filename(year, week):
     return f"{year}-W{week:02d}.json"
 
-def _api_call(api_key: str, messages: list) -> dict:
-    """Single raw API call. Returns the parsed response dict."""
-    payload = {
-        "model": MODEL,
-        "max_tokens": MAX_TOKENS,
-        "system": SYSTEM_PROMPT,
-        "tools": [{"type": "web_search_20250305", "name": "web_search"}],
-        "messages": messages,
-    }
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=data,
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8")
-        raise RuntimeError(f"API error {e.code}: {body}")
-
-
-def call_claude_api(api_key: str, user_prompt: str) -> dict:
-    """Agentic tool-use loop: keep calling until stop_reason == end_turn
-    and a text block containing JSON is returned."""
-    messages = [{"role": "user", "content": user_prompt}]
-    max_iterations = 20
-
-    for iteration in range(max_iterations):
-        print(f"    API call {iteration + 1}...")
-        raw = _api_call(api_key, messages)
-
-        stop_reason = raw.get("stop_reason", "")
-        content     = raw.get("content", [])
-
-        # Append assistant turn to messages
-        messages.append({"role": "assistant", "content": content})
-
-        # If Claude finished, extract the JSON text block
-        if stop_reason == "end_turn":
-            text_parts = [b["text"] for b in content if b.get("type") == "text"]
-            full_text = "\n".join(text_parts).strip()
-            if not full_text:
-                raise RuntimeError("end_turn reached but no text block found in response.")
-            # Strip accidental markdown fences
-            if full_text.startswith("```"):
-                full_text = full_text.split("\n", 1)[-1]
-                full_text = full_text.rsplit("```", 1)[0].strip()
-            return json.loads(full_text)
-
-        # If Claude wants to use a tool, collect all tool_use blocks,
-        # build tool_result blocks, and continue the loop
-        if stop_reason == "tool_use":
-            tool_results = []
-            for block in content:
-                if block.get("type") != "tool_use":
-                    continue
-                # web_search results are already embedded in the response by the API —
-                # we just need to acknowledge each tool_use with an empty tool_result
-                # so the conversation can continue.
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block["id"],
-                    "content": "",   # Anthropic web_search: results are in the next assistant turn
-                })
-            messages.append({"role": "user", "content": tool_results})
-            time.sleep(5)  # avoid rate limit between tool-use iterations
-            continue
-
-        # Any other stop reason (max_tokens, etc.)
-        raise RuntimeError(f"Unexpected stop_reason: {stop_reason!r}")
-
-    raise RuntimeError(f"Tool-use loop did not complete after {max_iterations} iterations.")
-
-
 def load_previous_report(index: dict) -> dict | None:
-    """Load the most recent past report to pass as dedupe context."""
     reports = index.get("reports", [])
     if not reports:
         return None
-    path = REPORTS_DIR / reports[0].get("file", "")
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text())
-    except Exception:
-        return None
-
+    p = REPORTS_DIR / reports[0].get("file", "")
+    return json.loads(p.read_text()) if p.exists() else None
 
 def load_index() -> dict:
-    index_path = REPORTS_DIR / "index.json"
-    if index_path.exists():
-        return json.loads(index_path.read_text())
-    return {"reports": []}
+    p = REPORTS_DIR / "index.json"
+    return json.loads(p.read_text()) if p.exists() else {"reports": []}
 
 def save_index(index: dict):
-    index_path = REPORTS_DIR / "index.json"
-    index_path.write_text(json.dumps(index, indent=2, ensure_ascii=False))
+    (REPORTS_DIR / "index.json").write_text(json.dumps(index, indent=2, ensure_ascii=False))
 
-def save_report(report_data: dict, filename: str, year: int, week: int, edition: int):
+def save_report(report_data: dict, filename: str):
     REPORTS_DIR.mkdir(exist_ok=True)
-    path = REPORTS_DIR / filename
-    path.write_text(json.dumps(report_data, indent=2, ensure_ascii=False))
-    print(f"  Saved report: {path}")
+    p = REPORTS_DIR / filename
+    p.write_text(json.dumps(report_data, indent=2, ensure_ascii=False))
+    print(f"  Saved: {p}")
 
-def update_index(index: dict, filename: str, year: int, week: int, edition: int, report: dict):
-    date_str = datetime.date.today().isoformat()
+def update_index(index, filename, year, week, edition, report):
     entry = {
-        "file": filename,
-        "edition": str(edition),
-        "date": date_str,
-        "week": f"{year}-W{week:02d}",
+        "file":     filename,
+        "edition":  str(edition),
+        "date":     datetime.date.today().isoformat(),
+        "week":     f"{year}-W{week:02d}",
         "headline": report.get("week_headline", "Heating Intelligence Weekly"),
-        "preview": report.get("week_preview", ""),
+        "preview":  report.get("week_preview", ""),
     }
-    # Prepend (newest first)
     index["reports"] = [entry] + [r for r in index["reports"] if r["file"] != filename]
     return index
 
-# ── MAIN ──────────────────────────────────────────────────────────────────────
 
+# ── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
     if not ANTHROPIC_API_KEY:
-        print("ERROR: ANTHROPIC_API_KEY environment variable is not set.")
+        print("ERROR: ANTHROPIC_API_KEY not set.")
         sys.exit(1)
 
     year, week = get_iso_week()
-    filename = get_report_filename(year, week)
+    filename   = get_report_filename(year, week)
+    today      = datetime.date.today()
     print(f"Generating report for {year}-W{week:02d}...")
 
-    # Load existing index
     REPORTS_DIR.mkdir(exist_ok=True)
-    index = load_index()
+    index   = load_index()
     edition = len(index["reports"]) + 1
 
-    # Check if already generated this week
     existing = [r for r in index["reports"] if r.get("week") == f"{year}-W{week:02d}"]
     if existing and "--force" not in sys.argv:
         print(f"  Report for {year}-W{week:02d} already exists. Use --force to regenerate.")
         sys.exit(0)
 
-    # Load previous report for dedupe context
-    previous_report = load_previous_report(index)
-    if previous_report:
-        print("  Previous report loaded for dedupe context.")
+    prev_report  = load_previous_report(index)
+    prev_titles  = []
+    if prev_report:
+        for items in prev_report.get("sections", {}).values():
+            if isinstance(items, list):
+                prev_titles += [i["title"] for i in items if isinstance(i, dict) and i.get("title")]
+        print(f"  Previous report loaded ({len(prev_titles)} items to skip).")
     else:
-        print("  No previous report found — first run.")
+        print("  No previous report — first run.")
 
-    # Build dynamic prompt with today's date + previous report context
-    today = datetime.date.today()
-    user_prompt = build_user_prompt(previous_report, today)
+    # Phase 1 — Research
+    print("  Phase 1: researching...")
+    findings = run_research(ANTHROPIC_API_KEY, today)
+    print(f"  Findings: {len(findings.split(chr(10)))} lines collected.")
 
-    # Call Claude
-    print("  Calling Claude API with web search...")
-    report = call_claude_api(ANTHROPIC_API_KEY, user_prompt)
-    print("  Report received.")
+    # Phase 2 — Synthesis
+    print("  Phase 2: synthesising JSON...")
+    report = run_synthesis(ANTHROPIC_API_KEY, findings, prev_titles, today)
+    print("  Report generated.")
 
-    # Save
-    save_report(report, filename, year, week, edition)
+    save_report(report, filename)
     index = update_index(index, filename, year, week, edition, report)
     save_index(index)
-    print(f"  Index updated. Total reports: {len(index['reports'])}")
-    print("Done!")
+    print(f"  Done. Total reports in archive: {len(index['reports'])}")
 
 if __name__ == "__main__":
     main()
